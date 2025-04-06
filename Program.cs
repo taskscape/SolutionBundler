@@ -60,6 +60,14 @@ namespace SolutionProcessor
             ".gitignore", ".editorconfig", ".props", ".targets", ".manifest", ".asax", ".ashx",
             ".aspx", ".sln", ".csproj", ".vbproj", ".fsproj", ".sqlproj", ".dbproj", ".ccproj"
         };
+        
+        private readonly HashSet<string> _binaryFileExtensions = new(StringComparer.OrdinalIgnoreCase)
+        {
+            ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".ico", ".tiff", ".webp", ".svg",
+            ".dll", ".exe", ".pdb", ".zip", ".tar", ".gz", ".7z", ".rar",
+            ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+            ".mp3", ".mp4", ".wav", ".avi", ".mov", ".wmv", ".flv"
+        };
         private readonly HashSet<string> _excludedDirectories = new(StringComparer.OrdinalIgnoreCase)
         {
             "bin", "obj", "node_modules", ".vs", ".git", "packages"
@@ -79,11 +87,11 @@ namespace SolutionProcessor
             await ProcessFileAsync(_solutionPath);
             
             // Get all project files from the solution
-            List<string> projectFiles = ParseSolutionForProjects(_solutionPath);
+            var projectFiles = ParseSolutionForProjects(_solutionPath);
             Console.WriteLine($"Found {projectFiles.Count} project(s) in solution");
 
             // Process each project file
-            foreach (string projectFile in projectFiles)
+            foreach (var projectFile in projectFiles)
             {
                 string fullPath = Path.GetFullPath(Path.Combine(_solutionDirectory, projectFile));
                 if (File.Exists(fullPath))
@@ -102,19 +110,19 @@ namespace SolutionProcessor
 
         private List<string> ParseSolutionForProjects(string solutionPath)
         {
-            List<string> projectPaths = new();
-            string[] solutionLines = File.ReadAllLines(solutionPath);
+            var projectPaths = new List<string>();
+            var solutionLines = File.ReadAllLines(solutionPath);
 
-            foreach (string line in solutionLines)
+            foreach (var line in solutionLines)
             {
                 // Project entry format in .sln file:
                 // Project("{GUID}") = "ProjectName", "RelativePath\To\Project.csproj", "{ProjectGUID}"
                 if (line.StartsWith("Project("))
                 {
-                    string[] parts = line.Split([','], StringSplitOptions.RemoveEmptyEntries);
+                    var parts = line.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
                     if (parts.Length >= 2)
                     {
-                        string projectPathPart = parts[1].Trim();
+                        var projectPathPart = parts[1].Trim();
                         
                         // Remove quotes around the path
                         if (projectPathPart.StartsWith("\"") && projectPathPart.EndsWith("\""))
@@ -137,48 +145,51 @@ namespace SolutionProcessor
         private async Task ProcessProjectAsync(string projectPath)
         {
             Console.WriteLine($"Processing project: {projectPath}");
-            
-            // Process the project file itself
+    
             await ProcessFileAsync(projectPath);
-            
+    
             string projectDir = Path.GetDirectoryName(projectPath) ?? string.Empty;
-            
-            // Parse project file to find referenced files
-            List<string> includedFiles = ParseProjectForFiles(projectPath);
-            
-            // Process each directly referenced file
-            foreach (string file in includedFiles)
+            var includedFiles = ParseProjectForFiles(projectPath);
+    
+            foreach (var file in includedFiles)
             {
                 string fullPath = Path.GetFullPath(Path.Combine(projectDir, file));
                 if (File.Exists(fullPath))
                 {
-                    await ProcessFileAsync(fullPath);
+                    string ext = Path.GetExtension(fullPath).ToLower();
+                    if (_textFileExtensions.Contains(ext))
+                    {
+                        await ProcessFileAsync(fullPath);
+                    }
+                    else if (_binaryFileExtensions.Contains(ext))
+                    {
+                        await ProcessBinaryFileAsync(fullPath);
+                    }
                 }
             }
-            
-            // Recursively process all files in the project directory
+    
             await ProcessDirectoryAsync(projectDir);
         }
 
         private List<string> ParseProjectForFiles(string projectPath)
         {
-            List<string> includedFiles = new List<string>();
+            var includedFiles = new List<string>();
             
             try
             {
-                XDocument projectXml = XDocument.Load(projectPath);
-                XNamespace? xmlns = projectXml.Root?.GetDefaultNamespace();
+                var projectXml = XDocument.Load(projectPath);
+                var xmlns = projectXml.Root?.GetDefaultNamespace();
 
                 // Look for Include attributes on common item nodes
-                List<XElement>? itemGroups = projectXml.Root?.Elements()
+                var itemGroups = projectXml.Root?.Elements()
                     .Where(e => e.Name.LocalName == "ItemGroup")
                     .ToList();
 
                 if (itemGroups != null)
                 {
-                    foreach (XElement itemGroup in itemGroups)
+                    foreach (var itemGroup in itemGroups)
                     {
-                        List<string> items = itemGroup.Elements()
+                        var items = itemGroup.Elements()
                             .Where(e => e.Attribute("Include") != null)
                             .Select(e => e.Attribute("Include")?.Value)
                             .Where(v => !string.IsNullOrEmpty(v))
@@ -213,10 +224,16 @@ namespace SolutionProcessor
                 
                 foreach (string file in Directory.GetFiles(directoryPath))
                 {
-                    string ext = Path.GetExtension(file);
+                    string ext = Path.GetExtension(file).ToLower();
+                    
                     if (_textFileExtensions.Contains(ext))
                     {
                         await ProcessFileAsync(file);
+                    }
+                    else if (_binaryFileExtensions.Contains(ext))
+                    {
+                        // Process binary file metadata without reading content
+                        await ProcessBinaryFileAsync(file);
                     }
                 }
             }
@@ -228,8 +245,53 @@ namespace SolutionProcessor
 
         private async Task ProcessFileAsync(string filePath)
         {
+           
+            string normalizedPath = Path.GetFullPath(filePath).ToLower();
+
+            // Skip if it's a designer file
+            if (normalizedPath.Contains(".designer.cs"))
+            {
+                return;
+            }
+            
+            // Skip if it's a resource file
+            if (normalizedPath.Contains(".resx") || normalizedPath.Contains("locale_"))
+            {
+                return;
+            }
+            
+            // Skip if it's a test file
+            if (normalizedPath.Contains("test"))
+            {
+                return;
+            }
+            
+            // Skip if it's a bundle file
+            if (normalizedPath.Contains("bundle") || normalizedPath.Contains(".min"))
+            {
+                return;
+            }
+
+            // Skip if it's a library file
+            if (normalizedPath.Contains("jquery") || normalizedPath.Contains("bootstrap") || normalizedPath.Contains("signalr.js") || normalizedPath.Contains("charts.js") || normalizedPath.Contains("quill.js") || normalizedPath.Contains("aspxscriptintellisense") || normalizedPath.Contains("microsoftajax") || normalizedPath.Contains("microsoftmvcajax") || normalizedPath.Contains("microsoftmvcvalidation") || normalizedPath.Contains("explorercanvas.js") || normalizedPath.Contains("guiders.js") || normalizedPath.Contains("moment.js") ||normalizedPath.Contains("dhtmlxgantt") )
+            {
+                return;
+            }
+            
+            // Skip if it's a stylesheet file
+            if (normalizedPath.Contains(".css"))
+            {
+                return;
+            }
+
+            // Skip if it's a licence file
+            if (normalizedPath.Contains("licence.txt"))
+            {
+                return;
+            }
+
+            
             // Skip if we already processed this file
-            string normalizedPath = Path.GetFullPath(filePath);
             if (_processedFiles.ContainsKey(normalizedPath))
             {
                 return;
@@ -250,12 +312,58 @@ namespace SolutionProcessor
                 Console.WriteLine($"Warning: Error reading file {filePath}: {ex.Message}");
             }
         }
+        
+        private async Task ProcessBinaryFileAsync(string filePath)
+        {
+            // Skip if we already processed this file
+            string normalizedPath = Path.GetFullPath(filePath);
+            if (_processedFiles.ContainsKey(normalizedPath))
+            {
+                return;
+            }
+            
+            try
+            {
+                // Get file info
+                var fileInfo = new FileInfo(normalizedPath);
+                string relativePath = Path.GetRelativePath(_solutionDirectory, normalizedPath);
+                
+                // Create a metadata entry instead of file content
+                string metadataContent = $"[Binary File: {Path.GetFileName(normalizedPath)}]\n" +
+                                        $"Size: {FormatFileSize(fileInfo.Length)}\n" +
+                                        $"Last Modified: {fileInfo.LastWriteTime}\n" +
+                                        $"Type: {Path.GetExtension(normalizedPath).TrimStart('.')} file";
+                                        
+                _processedFiles[normalizedPath] = metadataContent;
+                
+                Console.WriteLine($"Processed binary: {relativePath} ({FormatFileSize(fileInfo.Length)})");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Warning: Error processing binary file {filePath}: {ex.Message}");
+            }
+        }
+        
+        private string FormatFileSize(long bytes)
+        {
+            string[] sizes = { "B", "KB", "MB", "GB", "TB" };
+            double len = bytes;
+            int order = 0;
+            
+            while (len >= 1024 && order < sizes.Length - 1)
+            {
+                order++;
+                len = len / 1024;
+            }
+            
+            return $"{len:0.##} {sizes[order]}";
+        }
 
         private async Task WriteOutputAsync(string outputPath)
         {
             Console.WriteLine($"Writing {_processedFiles.Count} files to output...");
-
-            await using StreamWriter writer = new(outputPath, false, Encoding.UTF8);
+            
+            using var writer = new StreamWriter(outputPath, false, Encoding.UTF8);
             
             // Write a JSON header with metadata
             var metadata = new
@@ -273,7 +381,7 @@ namespace SolutionProcessor
             await writer.WriteLineAsync();
             
             // Write each file with content markers
-            foreach (KeyValuePair<string, string> file in _processedFiles.OrderBy(f => f.Key))
+            foreach (var file in _processedFiles.OrderBy(f => f.Key))
             {
                 string relativePath = Path.GetRelativePath(_solutionDirectory, file.Key);
                 string extension = Path.GetExtension(file.Key);
