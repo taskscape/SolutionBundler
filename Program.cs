@@ -93,6 +93,8 @@ namespace SolutionProcessor
             // Process each project file
             foreach (var projectFile in projectFiles)
             {
+                _processedFiles.Add(":SPACER-" + projectFile, projectFile);
+
                 string fullPath = Path.GetFullPath(Path.Combine(_solutionDirectory, projectFile));
                 if (File.Exists(fullPath))
                 {
@@ -381,9 +383,24 @@ namespace SolutionProcessor
             await writer.WriteLineAsync("## Files");
             await writer.WriteLineAsync();
 
-            foreach (var file in processedFilesNoLogs.OrderBy(f => f.Key))
+            foreach (var file in processedFilesNoLogs)
             {
-                string relativePath = Path.GetRelativePath(_solutionDirectory, file.Key);
+                string relativePath;
+                //Process the first element differently
+                if (file.Key == processedFilesNoLogs.First().Key)
+                {
+                    relativePath = Path.GetRelativePath(_solutionDirectory, file.Key);
+                    await writer.WriteLineAsync($"- [`{relativePath}`](#{ToMarkdownAnchor(relativePath)})");
+                    continue;
+                }
+                //Process the spacers
+                if(file.Key.Contains(":SPACER-"))
+                {
+                    await writer.WriteLineAsync($"");
+                    await writer.WriteLineAsync($"- {file.Key.Replace(":SPACER-", "").ToUpper()}");
+                    continue;
+                }
+                relativePath = Path.GetRelativePath(_solutionDirectory, file.Key);
                 await writer.WriteLineAsync($"- [`{relativePath}`](#{ToMarkdownAnchor(relativePath)})");
             }
 
@@ -392,7 +409,7 @@ namespace SolutionProcessor
             await writer.WriteLineAsync();
 
             // Write file contents
-            foreach (var file in processedFilesNoLogs.OrderBy(f => f.Key))
+            foreach (var file in processedFilesNoLogs)
             {
                 string relativePath = Path.GetRelativePath(_solutionDirectory, file.Key);
                 string extension = Path.GetExtension(file.Key);
