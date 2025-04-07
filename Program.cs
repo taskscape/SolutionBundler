@@ -361,7 +361,9 @@ namespace SolutionProcessor
 
         private async Task WriteOutputAsync(string outputPath)
         {
-            Console.WriteLine($"Writing {_processedFiles.Count} files to output...");
+            var processedFilesNoLogs = _processedFiles.Where(x => !isLogFile(x.Key)).ToDictionary();
+
+            Console.WriteLine($"Writing {processedFilesNoLogs.Count} files to output...");
 
             using var writer = new StreamWriter(outputPath, false, Encoding.UTF8);
 
@@ -370,7 +372,7 @@ namespace SolutionProcessor
             await writer.WriteLineAsync();
             await writer.WriteLineAsync($"- **Generated on:** {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss} UTC");
             await writer.WriteLineAsync($"- **Solution:** `{Path.GetFileName(_solutionPath)}`");
-            await writer.WriteLineAsync($"- **Total Files:** {_processedFiles.Count}");
+            await writer.WriteLineAsync($"- **Total Files:** {processedFilesNoLogs.Count}");
             await writer.WriteLineAsync();
             await writer.WriteLineAsync("---");
             await writer.WriteLineAsync();
@@ -379,7 +381,7 @@ namespace SolutionProcessor
             await writer.WriteLineAsync("## Files");
             await writer.WriteLineAsync();
 
-            foreach (var file in _processedFiles.OrderBy(f => f.Key))
+            foreach (var file in processedFilesNoLogs.OrderBy(f => f.Key))
             {
                 string relativePath = Path.GetRelativePath(_solutionDirectory, file.Key);
                 await writer.WriteLineAsync($"- [`{relativePath}`](#{ToMarkdownAnchor(relativePath)})");
@@ -390,7 +392,7 @@ namespace SolutionProcessor
             await writer.WriteLineAsync();
 
             // Write file contents
-            foreach (var file in _processedFiles.OrderBy(f => f.Key))
+            foreach (var file in processedFilesNoLogs.OrderBy(f => f.Key))
             {
                 string relativePath = Path.GetRelativePath(_solutionDirectory, file.Key);
                 string extension = Path.GetExtension(file.Key);
@@ -420,6 +422,16 @@ namespace SolutionProcessor
                 await writer.WriteLineAsync("```");
                 await writer.WriteLineAsync();
             }
+        }
+
+        private bool isLogFile(string file)
+        {
+            string extension = Path.GetExtension(file).ToLowerInvariant();
+            if (extension == ".log" || extension == ".log.txt") return true;
+
+            string relativePath = Path.GetRelativePath(_solutionDirectory, file);
+            if (relativePath.ToLower().Contains("logs\\")) return true;
+            return false;
         }
 
         // Helper to generate a Markdown-friendly anchor name
