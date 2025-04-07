@@ -362,70 +362,79 @@ namespace SolutionProcessor
         private async Task WriteOutputAsync(string outputPath)
         {
             Console.WriteLine($"Writing {_processedFiles.Count} files to output...");
-            
+
             using var writer = new StreamWriter(outputPath, false, Encoding.UTF8);
-            
-            // Write a JSON header with metadata
-            var metadata = new
-            {
-                solution = Path.GetFileName(_solutionPath),
-                timestamp = DateTime.UtcNow.ToString("o"),
-                fileCount = _processedFiles.Count
-            };
-            
-            await writer.WriteLineAsync("# SOLUTION BUNDLE");
-            await writer.WriteLineAsync($"# Generated on {DateTime.Now}");
-            await writer.WriteLineAsync($"# Solution: {Path.GetFileName(_solutionPath)}");
-            await writer.WriteLineAsync($"# Total Files: {_processedFiles.Count}");
-            await writer.WriteLineAsync("# ---------------------");
+
+            // Markdown metadata
+            await writer.WriteLineAsync("# Solution Bundle");
             await writer.WriteLineAsync();
-            
-            // Write each file with content markers
+            await writer.WriteLineAsync($"- **Generated on:** {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss} UTC");
+            await writer.WriteLineAsync($"- **Solution:** `{Path.GetFileName(_solutionPath)}`");
+            await writer.WriteLineAsync($"- **Total Files:** {_processedFiles.Count}");
+            await writer.WriteLineAsync();
+            await writer.WriteLineAsync("---");
+            await writer.WriteLineAsync();
+
+            // Files section
+            await writer.WriteLineAsync("## Files");
+            await writer.WriteLineAsync();
+
+            foreach (var file in _processedFiles.OrderBy(f => f.Key))
+            {
+                string relativePath = Path.GetRelativePath(_solutionDirectory, file.Key);
+                await writer.WriteLineAsync($"- [`{relativePath}`](#{ToMarkdownAnchor(relativePath)})");
+            }
+
+            await writer.WriteLineAsync();
+            await writer.WriteLineAsync("---");
+            await writer.WriteLineAsync();
+
+            // Write file contents
             foreach (var file in _processedFiles.OrderBy(f => f.Key))
             {
                 string relativePath = Path.GetRelativePath(_solutionDirectory, file.Key);
                 string extension = Path.GetExtension(file.Key);
-                
-                await writer.WriteLineAsync($"## FILE: {relativePath}");
-                
-                // Add language markers for syntax highlighting if an LLM supports it
-                if (!string.IsNullOrEmpty(extension))
+
+                await writer.WriteLineAsync($"### {relativePath}");
+                await writer.WriteLineAsync();
+
+                string language = extension.TrimStart('.').ToLower() switch
                 {
-                    string language = extension.TrimStart('.').ToLower() switch
-                    {
-                        "cs" => "csharp",
-                        "vb" => "vb",
-                        "fs" => "fsharp",
-                        "js" => "javascript",
-                        "ts" => "typescript",
-                        "json" => "json",
-                        "xml" => "xml",
-                        "md" => "markdown",
-                        "html" or "cshtml" or "aspx" or "razor" => "html",
-                        "css" => "css",
-                        "sql" => "sql",
-                        "yml" or "yaml" => "yaml",
-                        _ => ""
-                    };
-                    
-                    if (!string.IsNullOrEmpty(language))
-                    {
-                        await writer.WriteLineAsync($"```{language}");
-                    }
-                    else
-                    {
-                        await writer.WriteLineAsync("```");
-                    }
-                }
-                else
-                {
-                    await writer.WriteLineAsync("```");
-                }
-                
+                    "cs" => "csharp",
+                    "vb" => "vb",
+                    "fs" => "fsharp",
+                    "js" => "javascript",
+                    "ts" => "typescript",
+                    "json" => "json",
+                    "xml" => "xml",
+                    "md" => "markdown",
+                    "html" or "cshtml" or "aspx" or "razor" => "html",
+                    "css" => "css",
+                    "sql" => "sql",
+                    "yml" or "yaml" => "yaml",
+                    _ => ""
+                };
+
+                await writer.WriteLineAsync(!string.IsNullOrEmpty(language) ? $"```{language}" : "```");
                 await writer.WriteLineAsync(file.Value);
                 await writer.WriteLineAsync("```");
                 await writer.WriteLineAsync();
             }
         }
+
+        // Helper to generate a Markdown-friendly anchor name
+        private string ToMarkdownAnchor(string text)
+        {
+            var anchor = text.ToLower()
+                             .Replace(" ", "-")
+                             .Replace(".", "")
+                             .Replace("/", "")
+                             .Replace("\\", "")
+                             .Replace("`", "")
+                             .Replace("#", "");
+            return anchor;
+        }
+
+
     }
 }
