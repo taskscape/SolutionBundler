@@ -401,7 +401,7 @@ namespace SolutionProcessor
                     continue;
                 }
                 relativePath = Path.GetRelativePath(_solutionDirectory, file.Key);
-                await writer.WriteLineAsync($"- [`{relativePath}`](#{ToMarkdownAnchor(relativePath)})");
+                await writer.WriteLineAsync($"\t- [`{relativePath}`](#{ToMarkdownAnchor(relativePath)})");
             }
 
             await writer.WriteLineAsync();
