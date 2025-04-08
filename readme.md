@@ -15,7 +15,7 @@ A .NET console application that processes all files in a C# solution and concate
 
 ### Prerequisites
 
-- .NET 7.0 SDK or later
+- .NET 9.0 SDK or later
 
 ### Building the Application
 
@@ -30,13 +30,13 @@ dotnet build -c Release
 ## Usage
 
 ```bash
-dotnet run --project SolutionProcessor.csproj <path-to-solution-file> [output-file]
+dotnet run --project SolutionBundler.csproj <path-to-solution-file> [output-file]
 ```
 
 Or use the compiled executable:
 
 ```bash
-SolutionProcessor <path-to-solution-file> [output-file]
+SolutionBundler <path-to-solution-file> [output-file]
 ```
 
 If no output file is specified, the program will create `output.md` in the current directory.
@@ -45,10 +45,10 @@ If no output file is specified, the program will create `output.md` in the curre
 
 ```bash
 # Process a solution and save to the default output.txt
-SolutionProcessor C:\Projects\MySolution\MySolution.sln
+SolutionBundler C:\Projects\MySolution\MySolution.sln
 
 # Process a solution and save to a specific file
-SolutionProcessor C:\Projects\MySolution\MySolution.sln C:\Temp\solution-bundle.md
+SolutionBundler C:\Projects\MySolution\MySolution.sln C:\Temp\solution-bundle.md
 ```
 
 ## Output Format
