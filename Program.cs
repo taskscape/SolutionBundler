@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 using System.Xml.Linq;
 
 namespace SolutionBundler;
@@ -45,16 +45,16 @@ public class SolutionProcessor
     private readonly Dictionary<string, string> _processedFiles = new();
     private readonly HashSet<string> _projectExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
-        ".csproj", ".vbproj", ".fsproj", ".sqlproj", ".dbproj", ".ccproj"
+        ".csproj", ".vbproj", ".fsproj", ".sqlproj", ".dbproj", ".ccproj", ".vcxproj"
     };
     private readonly HashSet<string> _textFileExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
-        ".cs", ".vb", ".fs", ".sql", ".xml", ".json", ".md", ".txt", ".config", ".settings",
-        ".xaml", ".cshtml", ".html", ".css", ".js", ".ts", ".razor", ".resx", ".yml", ".yaml",
-        ".gitignore", ".editorconfig", ".props", ".targets", ".manifest", ".asax", ".ashx",
-        ".aspx", ".sln", ".csproj", ".vbproj", ".fsproj", ".sqlproj", ".dbproj", ".ccproj"
+        ".cs", ".vb", ".fs", ".sql", ".xml", ".json", ".md", ".txt", ".config", ".settings", ".cpp",
+        ".h", ".hpp", ".xaml", ".cshtml", ".html", ".css", ".js", ".ts", ".razor", ".resx", ".yml", 
+        ".yaml", ".gitignore", ".editorconfig", ".props", ".targets", ".manifest", ".asax", ".ashx",
+        ".aspx", ".sln", ".csproj", ".vbproj", ".fsproj", ".sqlproj", ".dbproj", ".ccproj", ".vcxproj"
     };
-        
+
     private readonly HashSet<string> _binaryFileExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
         ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".ico", ".tiff", ".webp", ".svg",
@@ -64,7 +64,7 @@ public class SolutionProcessor
     };
     private readonly HashSet<string> _excludedDirectories = new(StringComparer.OrdinalIgnoreCase)
     {
-        "bin", "obj", "node_modules", ".vs", ".git", "packages"
+        "bin", "obj", "node_modules", ".vs", ".git", "packages", "x64", "x86"
     };
 
     public SolutionProcessor(string solutionPath)
@@ -164,34 +164,28 @@ public class SolutionProcessor
     private static List<string> ParseProjectForFiles(string projectPath)
     {
         List<string> includedFiles = [];
-            
+
         try
         {
             XDocument projectXml = XDocument.Load(projectPath);
-            XNamespace? xmlns = projectXml.Root?.GetDefaultNamespace();
+            XNamespace msbuild = projectXml.Root.GetDefaultNamespace();
 
-            // Look for Include attributes on common item nodes
-            List<XElement>? itemGroups = projectXml.Root?.Elements()
-                .Where(e => e.Name.LocalName == "ItemGroup")
-                .ToList();
+            List<XElement> itemGroups = projectXml.Root.Elements(msbuild + "ItemGroup").ToList();
 
-            if (itemGroups != null)
+            foreach (List<string?> items in itemGroups.Select(itemGroup => itemGroup.Elements()
+                         .Where(e => e.Attribute("Include") != null)
+                         .Select(e => e.Attribute("Include")?.Value)
+                         .Where(v => !string.IsNullOrEmpty(v))
+                         .ToList()))
             {
-                foreach (List<string?> items in itemGroups.Select(itemGroup => itemGroup.Elements()
-                             .Where(e => e.Attribute("Include") != null)
-                             .Select(e => e.Attribute("Include")?.Value)
-                             .Where(v => !string.IsNullOrEmpty(v))
-                             .ToList()))
-                {
-                    includedFiles.AddRange(items.Where(i => i != null).Select(i => i.Replace('\\', Path.DirectorySeparatorChar)));
-                }
+                includedFiles.AddRange(items.Select(i => i.Replace('\\', Path.DirectorySeparatorChar)));
             }
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Warning: Error parsing project file {projectPath}: {ex.Message}");
         }
-            
+
         return includedFiles;
     }
 
@@ -247,12 +241,6 @@ public class SolutionProcessor
         {
             return;
         }
-            
-        // Skip if it's a test file
-        if (normalizedPath.Contains("test"))
-        {
-            return;
-        }
 
         // Skip if it's a log file
         if (normalizedPath.Contains("logs\\") || normalizedPath.Contains(".log") || normalizedPath.Contains(".log.txt"))
@@ -261,13 +249,13 @@ public class SolutionProcessor
         }
 
         // Skip if it's a bundle file
-        if (normalizedPath.Contains("bundle") || normalizedPath.Contains(".min"))
+        if (normalizedPath.Contains(".bundle.") || normalizedPath.EndsWith(".min.js") || normalizedPath.EndsWith(".min.css"))
         {
             return;
         }
 
         // Skip if it's a library file
-        if (normalizedPath.Contains("jquery") || normalizedPath.Contains("bootstrap") || normalizedPath.Contains("signalr.js") || normalizedPath.Contains("charts.js") || normalizedPath.Contains("quill.js") || normalizedPath.Contains("aspxscriptintellisense") || normalizedPath.Contains("microsoftajax") || normalizedPath.Contains("microsoftmvcajax") || normalizedPath.Contains("microsoftmvcvalidation") || normalizedPath.Contains("explorercanvas.js") || normalizedPath.Contains("guiders.js") || normalizedPath.Contains("moment.js") ||normalizedPath.Contains("dhtmlxgantt") )
+        if (normalizedPath.Contains("jquery") || normalizedPath.Contains("bootstrap") || normalizedPath.Contains("signalr.js") || normalizedPath.Contains("charts.js") || normalizedPath.Contains("quill.js") || normalizedPath.Contains("aspxscriptintellisense") || normalizedPath.Contains("microsoftajax") || normalizedPath.Contains("microsoftmvcajax") || normalizedPath.Contains("microsoftmvcvalidation") || normalizedPath.Contains("explorercanvas.js") || normalizedPath.Contains("guiders.js") || normalizedPath.Contains("moment.js") || normalizedPath.Contains("dhtmlxgantt"))
         {
             return;
         }
@@ -400,12 +388,14 @@ public class SolutionProcessor
                 "js" => "javascript",
                 "ts" => "typescript",
                 "json" => "json",
-                "xml" => "xml",
+                "xml" or "csproj" or "vcxproj" or "vbproj" or "fsproj" or "sqlproj" or "dbproj" or "ccproj" 
+                    or "config" or "settings" or "xaml" or "resx" or "props" or "targets" or "manifest" => "xml",
                 "md" => "markdown",
                 "html" or "cshtml" or "aspx" or "razor" => "html",
                 "css" => "css",
                 "sql" => "sql",
                 "yml" or "yaml" => "yaml",
+                "cpp" or "cc" or "cxx" or "h" or "hpp" or "hh" or "hxx" => "cpp",
                 _ => ""
             };
 
@@ -431,7 +421,6 @@ public class SolutionProcessor
         return $"{len:0.##} {sizes[order]}";
     }
     
-
     // Helper to generate a Markdown-friendly anchor name
     private static string ToMarkdownAnchor(string text)
     {
