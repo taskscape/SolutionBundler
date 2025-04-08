@@ -39,7 +39,7 @@ Or use the compiled executable:
 SolutionProcessor <path-to-solution-file> [output-file]
 ```
 
-If no output file is specified, the program will create `output.txt` in the current directory.
+If no output file is specified, the program will create `output.md` in the current directory.
 
 ### Examples
 
@@ -55,7 +55,8 @@ SolutionProcessor C:\Projects\MySolution\MySolution.sln C:\Temp\solution-bundle.
 
 The generated output file follows this format:
 
-```
+
+````
 # SOLUTION BUNDLE
 # Generated on [Date and Time]
 # Solution: YourSolution.sln
@@ -73,7 +74,7 @@ The generated output file follows this format:
 ```
 
 ...and so on
-```
+````
 
 This format:
 
