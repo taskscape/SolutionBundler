@@ -1,5 +1,6 @@
 using System.Text;
 using System.Xml.Linq;
+using Microsoft.Extensions.Configuration;
 
 namespace SolutionBundler;
 
@@ -23,10 +24,18 @@ internal static class Program
             return;
         }
 
+        var configuration = new ConfigurationBuilder()
+            .SetBasePath(Directory.GetCurrentDirectory())
+            .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
+            .Build();
+
+        var fileSettings = new FileSettings();
+        configuration.GetSection("FileSettings").Bind(fileSettings);
+
         try
         {
             Console.WriteLine($"Processing solution: {solutionPath}");
-            SolutionProcessor processor = new SolutionProcessor(solutionPath);
+            SolutionProcessor processor = new SolutionProcessor(solutionPath, fileSettings);
             await processor.ProcessSolutionAsync(outputPath);
             Console.WriteLine($"Processing complete. Output written to: {outputPath}");
         }
@@ -67,10 +76,34 @@ public class SolutionProcessor
         "bin", "obj", "node_modules", ".vs", ".git", "packages", "x64", "x86"
     };
 
-    public SolutionProcessor(string solutionPath)
+    public SolutionProcessor(string solutionPath, FileSettings settings)
     {
         _solutionPath = Path.GetFullPath(solutionPath);
         _solutionDirectory = Path.GetDirectoryName(_solutionPath) ?? string.Empty;
+
+        //ProjectExtensions
+        if (settings.ProjectExtensions != null)
+            _projectExtensions = settings.ProjectExtensions.ToHashSet();
+        else
+            Console.WriteLine($"Allowed Project Extensions not defined! Using default values!");
+
+        //TextFileExtensions
+        if (settings.TextFileExtensions != null)
+            _textFileExtensions = settings.TextFileExtensions.ToHashSet();
+        else
+            Console.WriteLine($"Allowed Text File Extensions not defined! Using default values!");
+
+        //BinaryFileExtensions
+        if (settings.BinaryFileExtensions != null)
+            _binaryFileExtensions = settings.BinaryFileExtensions.ToHashSet();
+        else
+            Console.WriteLine($"Allowed Binary File Extensions not defined! Using default values!");
+
+        //ExcludedDirectories
+        if (settings.ExcludedDirectories != null)
+            _excludedDirectories = settings.ExcludedDirectories.ToHashSet();
+        else
+            Console.WriteLine($"Excluded Directories not defined! Using default values!");
     }
 
     public async Task ProcessSolutionAsync(string outputPath)

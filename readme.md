@@ -19,8 +19,8 @@ A .NET console application that processes all files in a C# solution and concate
 
 ### Building the Application
 
-1. Clone or download this repository
-2. Open a terminal in the project directory
+1. Clone or download this repository  
+2. Open a terminal in the project directory  
 3. Build the application:
 
 ```bash
@@ -55,8 +55,7 @@ SolutionBundler C:\Projects\MySolution\MySolution.sln C:\Temp\solution-bundle.md
 
 The generated output file follows this format:
 
-
-````
+````markdown
 # SOLUTION BUNDLE
 # Generated on [Date and Time]
 # Solution: YourSolution.sln
@@ -90,6 +89,73 @@ You can easily modify the code to:
 - Include or exclude additional file types by modifying the `_textFileExtensions` collection
 - Change the output format to suit your specific LLM
 - Add more excluded directories to the `_excludedDirectories` collection
+
+## Configuration
+
+The file and directory filters used by the `SolutionProcessor` can be customized via an `appsettings.json`.
+
+The configuration is optional. If omitted, the program will use a set of sensible defaults.
+
+### Configuring `appsettings.json`
+
+Create a file named `appsettings.json` with the following structure:
+
+```json
+{
+  "FileSettings": {
+    "ProjectExtensions": [
+      ".csproj", ".vbproj", ".fsproj", ".sqlproj", ".dbproj", ".ccproj", ".vcxproj"
+    ],
+    "TextFileExtensions": [
+      ".cs", ".vb", ".fs", ".sql", ".xml", ".json", ".md", ".txt", ".config",
+      ".settings", ".cpp", ".h", ".hpp", ".xaml", ".cshtml", ".html", ".css", ".js",
+      ".ts", ".razor", ".resx", ".yml", ".yaml", ".gitignore", ".editorconfig",
+      ".props", ".targets", ".manifest", ".asax", ".ashx", ".aspx", ".sln",
+      ".csproj", ".vbproj", ".fsproj", ".sqlproj", ".dbproj", ".ccproj", ".vcxproj"
+    ],
+    "BinaryFileExtensions": [
+      ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".ico", ".tiff", ".webp", ".svg",
+      ".dll", ".exe", ".pdb", ".zip", ".tar", ".gz", ".7z", ".rar", ".pdf", ".doc",
+      ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".mp3", ".mp4", ".wav", ".avi",
+      ".mov", ".wmv", ".flv"
+    ],
+    "ExcludedDirectories": [
+      "bin", "obj", "node_modules", ".vs", ".git", "packages", "x64", "x86"
+    ]
+  }
+}
+```
+
+### Property Descriptions
+
+- **ProjectExtensions**  
+  A list of file extensions representing project files that define which source files belong to which projects. These typically include `.csproj`, `.vbproj`, etc.
+
+- **TextFileExtensions**  
+  A list of file extensions that are treated as human-readable, text-based content. Files matching these extensions will be included in the output bundle with proper formatting.
+
+- **BinaryFileExtensions**  
+  A list of file extensions that are considered binary or non-readable. Files matching these extensions will be included in the output bundle.
+
+- **ExcludedDirectories**  
+  A list of directory names that should be skipped during recursive traversal of the solution folder. Typically includes build and dependency folders.
+
+### Example Scenario
+
+To include `.csv` and `.tsv` files for data analysis, and exclude the `dist` and `logs` folders, you could modify the settings as follows:
+
+```json
+{
+  "FileSettings": {
+    "TextFileExtensions": [
+      ".cs", ".json", ".csv", ".tsv", ".txt"
+    ],
+    "ExcludedDirectories": [
+      "bin", "obj", "dist", "logs"
+    ]
+  }
+}
+```
 
 ## License
 
