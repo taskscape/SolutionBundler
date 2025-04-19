@@ -242,6 +242,12 @@ public class SolutionProcessor
             return;
         }
 
+        // Skip if it's a gitignore file
+        if (normalizedPath.Contains(".gitignore"))
+        {
+            return;
+        }
+
         // Skip if it's a log file
         if (normalizedPath.Contains("logs\\") || normalizedPath.Contains(".log") || normalizedPath.Contains(".log.txt"))
         {
@@ -249,13 +255,13 @@ public class SolutionProcessor
         }
 
         // Skip if it's a bundle file
-        if (normalizedPath.Contains(".bundle.") || normalizedPath.EndsWith(".min.js") || normalizedPath.EndsWith(".min.css"))
+        if (normalizedPath.Contains("bundle.") || normalizedPath.EndsWith(".min.js") || normalizedPath.EndsWith(".min.css"))
         {
             return;
         }
 
         // Skip if it's a library file
-        if (normalizedPath.Contains("jquery") || normalizedPath.Contains("bootstrap") || normalizedPath.Contains("signalr.js") || normalizedPath.Contains("charts.js") || normalizedPath.Contains("quill.js") || normalizedPath.Contains("aspxscriptintellisense") || normalizedPath.Contains("microsoftajax") || normalizedPath.Contains("microsoftmvcajax") || normalizedPath.Contains("microsoftmvcvalidation") || normalizedPath.Contains("explorercanvas.js") || normalizedPath.Contains("guiders.js") || normalizedPath.Contains("moment.js") || normalizedPath.Contains("dhtmlxgantt"))
+        if (normalizedPath.Contains("jquery") || normalizedPath.Contains("knockout") || normalizedPath.Contains("bootstrap") || normalizedPath.Contains("signalr.js") || normalizedPath.Contains("charts.js") || normalizedPath.Contains("quill.js") || normalizedPath.Contains("aspxscriptintellisense") || normalizedPath.Contains("microsoftajax") || normalizedPath.Contains("microsoftmvcajax") || normalizedPath.Contains("microsoftmvcvalidation") || normalizedPath.Contains("explorercanvas.js") || normalizedPath.Contains("guiders.js") || normalizedPath.Contains("moment.js") || normalizedPath.Contains("dhtmlxgantt"))
         {
             return;
         }
